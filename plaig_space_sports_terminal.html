@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>plaig.space // sports telemetry & live fixtures</title>
+  <!-- Google Font: JetBrains Mono for authentic code / terminal typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-canvas: #090a0d;
+      --bg-surface: #101216;
+      --bg-surface-elevated: #16181f;
+      --bg-surface-hover: #1b1e26;
+      --border-subtle: #1f232c;
+      --border-strong: #2c3240;
+      
+      --accent-green: #00e676;
+      --accent-green-dim: rgba(0, 230, 118, 0.12);
+      --accent-green-border: rgba(0, 230, 118, 0.35);
+      --accent-green-glow: rgba(0, 230, 118, 0.22);
+      
+      --text-primary: #ecf2f8;
+      --text-secondary: #8b949e;
+      --text-muted: #545d68;
+      
+      --danger-red: #ff4d4d;
+      --danger-dim: rgba(255, 77, 77, 0.12);
+      --warn-amber: #e5a93c;
+      --warn-dim: rgba(229, 169, 60, 0.12);
+      
+      --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-mono);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      min-height: 100vh;
+      font-size: 12.5px;
+      line-height: 1.5;
+      overflow-x: hidden;
+      letter-spacing: -0.015em;
+    }
+
+    /* Terminal Scanlines Overlay (very subtle) */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      z-index: 999;
+      opacity: 0.18;
+    }
+
+    /* Micro utility classes */
+    .green { color: var(--accent-green); }
+    .muted { color: var(--text-secondary); }
+    .dim { color: var(--text-muted); }
+    .border-b { border-bottom: 1px solid var(--border-subtle); }
+    .border-r { border-right: 1px solid var(--border-subtle); }
+    .border-l { border-left: 1px solid var(--border-subtle); }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-canvas);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-green);
+    }
+
+    /* LIVE PULSE DOT */
+    .pulse-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--accent-green);
+      box-shadow: 0 0 6px var(--accent-green);
+      animation: pulse 1.6s infinite ease-in-out;
+      margin-right: 6px;
+      flex-shrink: 0;
+    }
+    .pulse-dot.danger {
+      background-color: var(--danger-red);
+      box-shadow: 0 0 6px var(--danger-red);
+      animation: pulse-danger 1.6s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(0.9); opacity: 0.7; }
+      50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 10px var(--accent-green); }
+    }
+    @keyframes pulse-danger {
+      0%, 100% { transform: scale(0.9); opacity: 0.7; }
+      50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 10px var(--danger-red); }
+    }
+
+    /* UI Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      font-size: 10.5px;
+      font-weight: 600;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-live {
+      background: var(--accent-green-dim);
+      color: var(--accent-green);
+      border: 1px solid var(--accent-green-border);
+    }
+    .badge-sched {
+      background: var(--bg-surface-elevated);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+    }
+    .badge-ft {
+      background: var(--bg-surface);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .btn:hover {
+      background: var(--bg-surface-hover);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+    .btn-green {
+      background: var(--accent-green-dim);
+      border-color: var(--accent-green-border);
+      color: var(--accent-green);
+    }
+    .btn-green:hover {
+      background: rgba(0, 230, 118, 0.22);
+      color: #fff;
+      border-color: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green-glow);
+    }
+
+    /* SVG Icon Helpers */
+    .icon {
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+
+  <style>
+    /* TOP META SYSTEM BAR */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 18px;
+      background: #060709;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* MAIN APP HEADER */
+    .site-header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 12px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+    }
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.04em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-title .prefix {
+      color: var(--accent-green);
+    }
+    .brand-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border: 1px solid var(--accent-green-border);
+      background: var(--accent-green-dim);
+      color: var(--accent-green);
+      border-radius: 3px;
+      letter-spacing: 0.05em;
+    }
+
+    /* SPORT SELECTOR CHIPS */
+    .nav-filters {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      max-width: 100%;
+      padding-bottom: 2px;
+    }
+    .nav-pill {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-secondary);
+      font-size: 11.5px;
+      padding: 5px 11px;
+      border-radius: 3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .nav-pill:hover {
+      background: var(--bg-surface-hover);
+      color: var(--text-primary);
+    }
+    .nav-pill.active {
+      background: var(--bg-surface-elevated);
+      color: var(--accent-green);
+      border-color: var(--accent-green-border);
+    }
+
+    /* SEARCH / CONTROL CLUSTER */
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .search-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .search-wrapper .icon {
+      position: absolute;
+      left: 9px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .search-input {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 6px 10px 6px 30px;
+      color: var(--text-primary);
+      font-size: 11.5px;
+      outline: none;
+      width: 190px;
+      transition: all 0.2s ease;
+    }
+    .search-input:focus {
+      border-color: var(--accent-green);
+      width: 230px;
+      box-shadow: 0 0 8px var(--accent-green-dim);
+    }
+
+    /* CONTINUOUS TICKER TAPE */
+    .ticker-bar {
+      background: #0b0c10;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      height: 42px;
+      overflow: hidden;
+      position: relative;
+    }
+    .ticker-label {
+      background: var(--bg-surface-elevated);
+      height: 100%;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--accent-green);
+      border-right: 1px solid var(--border-subtle);
+      z-index: 5;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .ticker-items {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 16px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      white-space: nowrap;
+    }
+    .ticker-items::-webkit-scrollbar {
+      display: none;
+    }
+    .ticker-card {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      padding: 4px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 11px;
+      transition: border-color 0.15s ease;
+    }
+    .ticker-card:hover {
+      border-color: var(--accent-green-border);
+      background: var(--bg-surface-hover);
+    }
+    .ticker-time {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* LAYOUT GRIDS */
+    .dashboard-container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 16px;
+    }
+    @media (max-width: 1200px) {
+      .dashboard-container {
+        grid-template-columns: 1fr;
+      }
+    }
+    .main-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .side-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* SECTION BOX */
+    .panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 10px 14px;
+      background: var(--bg-surface-elevated);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .panel-title::before {
+      content: "";
+      width: 3px;
+      height: 12px;
+      background: var(--accent-green);
+      display: inline-block;
+      border-radius: 1px;
+    }
+  </style>
+
+  <style>
+    /* FEATURED MATCH CENTER TELEMETRY */
+    .match-center-hero {
+      padding: 18px;
+      background: linear-gradient(180deg, #13161d 0%, #0d0f14 100%);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .meta-headline {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .scoreboard-strip {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .team-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .team-cell.right {
+      justify-content: flex-end;
+      text-align: right;
+    }
+    .team-crest {
+      width: 38px;
+      height: 38px;
+      border-radius: 4px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-strong);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--accent-green);
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .team-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.2;
+    }
+    .team-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .score-display {
+      text-align: center;
+      padding: 6px 18px;
+      background: #07080a;
+      border: 1px solid var(--border-strong);
+      border-radius: 4px;
+    }
+    .score-nums {
+      font-size: 32px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 0.06em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .match-clock {
+      font-size: 11px;
+      color: var(--accent-green);
+      font-weight: 600;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    /* POSSESSION & STAT METRICS BARS */
+    .telemetry-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 768px) {
+      .telemetry-row {
+        grid-template-columns: 1fr;
+      }
+    }
+    .stat-chip {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      padding: 10px 12px;
+      border-radius: 3px;
+    }
+    .stat-chip-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10.5px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .dual-bar {
+      height: 5px;
+      background: #1f242e;
+      border-radius: 2px;
+      display: flex;
+      overflow: hidden;
+    }
+    .dual-fill-left {
+      background: var(--accent-green);
+      height: 100%;
+      transition: width 0.4s ease;
+    }
+    .dual-fill-right {
+      background: #4f5b66;
+      height: 100%;
+      transition: width 0.4s ease;
+    }
+
+    /* PITCH EVENT TIMELINE */
+    .timeline-strip {
+      padding: 12px 16px;
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border-subtle);
+    }
+    .timeline-title {
+      font-size: 10.5px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .events-stream {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 180px;
+      overflow-y: auto;
+      padding-right: 6px;
+    }
+    .event-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11.5px;
+      padding: 5px 8px;
+      border-radius: 3px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+    }
+    .event-min {
+      color: var(--accent-green);
+      font-weight: 700;
+      min-width: 32px;
+    }
+    .event-tag {
+      padding: 1px 5px;
+      font-size: 9.5px;
+      font-weight: 700;
+      border-radius: 2px;
+      text-transform: uppercase;
+    }
+    .event-tag.goal {
+      background: var(--accent-green-dim);
+      color: var(--accent-green);
+      border: 1px solid var(--accent-green-border);
+    }
+    .event-tag.card {
+      background: var(--warn-dim);
+      color: var(--warn-amber);
+      border: 1px solid rgba(229, 169, 60, 0.3);
+    }
+    .event-tag.sub {
+      background: var(--bg-surface-elevated);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-strong);
+    }
+
+    /* MATCH LISTINGS TABLE */
+    .fixtures-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    .fixtures-table th {
+      padding: 8px 12px;
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border-subtle);
+      background: #0d0f13;
+      font-weight: 600;
+    }
+    .fixtures-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12px;
+    }
+    .fixtures-table tr.fixture-row {
+      cursor: pointer;
+      transition: background 0.1s ease;
+    }
+    .fixtures-table tr.fixture-row:hover {
+      background: var(--bg-surface-hover);
+    }
+    .fixtures-table tr.selected {
+      background: rgba(0, 230, 118, 0.05);
+      border-left: 2px solid var(--accent-green);
+    }
+    .cell-matchup {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .cell-team {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .cell-score {
+      font-weight: 700;
+      color: var(--accent-green);
+      min-width: 48px;
+      text-align: center;
+      background: #08090b;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid var(--border-subtle);
+      letter-spacing: 0.05em;
+    }
+
+    /* ODDS PROBABILITY PILL */
+    .odds-pill {
+      font-size: 10px;
+      padding: 2px 5px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 2px;
+      color: var(--text-secondary);
+      margin-left: 4px;
+    }
+    .odds-pill:hover {
+      border-color: var(--accent-green-border);
+      color: var(--accent-green);
+    }
+
+    /* STANDINGS TABLE */
+    .standings-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+    }
+    .standings-table th {
+      padding: 7px 8px;
+      background: #0c0e12;
+      color: var(--text-muted);
+      font-size: 9.5px;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .standings-table td {
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .standings-table tr:hover {
+      background: var(--bg-surface-hover);
+    }
+    .pos-col {
+      width: 24px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .pos-col.top-4 {
+      color: var(--accent-green);
+    }
+    .form-box {
+      display: inline-block;
+      width: 15px;
+      height: 15px;
+      line-height: 15px;
+      text-align: center;
+      font-size: 9px;
+      font-weight: 700;
+      border-radius: 2px;
+      margin-right: 2px;
+    }
+    .form-w { background: var(--accent-green-dim); color: var(--accent-green); border: 1px solid var(--accent-green-border); }
+    .form-d { background: rgba(255, 255, 255, 0.07); color: #ccc; border: 1px solid #333; }
+    .form-l { background: var(--danger-dim); color: var(--danger-red); border: 1px solid rgba(255, 77, 77, 0.3); }
+
+    /* LEADERBOARD STAT WIDGET */
+    .leader-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .leader-row:last-child {
+      border-bottom: none;
+    }
+    .leader-name {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .leader-club {
+      font-size: 10.5px;
+      color: var(--text-muted);
+    }
+    .leader-val {
+      font-weight: 700;
+      color: var(--accent-green);
+      font-size: 13px;
+    }
+
+    /* MODAL / TOAST */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--accent-green-border);
+      color: var(--text-primary);
+      padding: 10px 16px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 1000;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SYSTEM TOP TELEMETRY STRIP -->
+  <div class="top-bar">
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <span>SYS_NODE: US-EAST-02</span>
+      <span>LATENCY: <span class="green">14ms</span></span>
+      <span>FEED: REALTIME_SOCKET_OPEN</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <span>UTC_TIME: <span id="clock-utc">00:00:00</span></span>
+      <span style="display: flex; align-items: center;"><span class="pulse-dot"></span> [live: connected]</span>
+    </div>
+  </div>
+
+  <!-- MAIN HEADER -->
+  <header class="site-header">
+    <div class="brand-group">
+      <div class="brand-title">
+        <span class="prefix">/</span>plaig.space
+      </div>
+      <span class="brand-tag">v2.4.9-telemetry</span>
+    </div>
+
+    <!-- SPORT SELECTION TABS -->
+    <nav class="nav-filters" id="sport-tabs">
+      <button class="nav-pill active" data-sport="all">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+        all
+      </button>
+      <button class="nav-pill" data-sport="soccer">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
+        football / soccer
+      </button>
+      <button class="nav-pill" data-sport="basketball">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0-10 10c0 4.4 2.8 8.1 6.8 9.5"/><path d="M12 2a10 10 0 0 1 10 10c0 4.4-2.8 8.1-6.8 9.5"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+        basketball
+      </button>
+      <button class="nav-pill" data-sport="nfl">
+        <svg class="icon" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="10" ry="6"/><line x1="12" y1="6" x2="12" y2="18"/><line x1="9" y1="10" x2="9" y2="14"/><line x1="15" y1="10" x2="15" y2="14"/></svg>
+        american football
+      </button>
+      <button class="nav-pill" data-sport="f1">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        formula 1
+      </button>
+    </nav>
+
+    <!-- SEARCH & REALTIME SIMULATOR TRIGGER -->
+    <div class="header-controls">
+      <div class="search-wrapper">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="filter-search" class="search-input" placeholder="filter teams or leagues...">
+      </div>
+      
+      <button class="btn btn-green" id="simulate-tick-btn" title="Simulate real-time match event">
+        <svg class="icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        inject live event
+      </button>
+
+      <button class="btn" id="export-json-btn" title="Export telemetry as raw JSON">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        export
+      </button>
+    </div>
+  </header>
+
+  <!-- HORIZONTAL TICKER BAR -->
+  <div class="ticker-bar">
+    <div class="ticker-label">
+      <span class="pulse-dot"></span> ticker.live
+    </div>
+    <div class="ticker-items" id="ticker-container">
+      <!-- Dynamic ticker chips rendered via JS -->
+    </div>
+  </div>
+
+  <!-- MAIN WORKSPACE -->
+  <main class="dashboard-container">
+    
+    <!-- LEFT MAIN COLUMN -->
+    <div class="main-col">
+
+      <!-- FEATURED TELEMETRY MATCH CENTER -->
+      <section class="panel" id="feature-panel">
+        <div class="panel-header">
+          <div class="panel-title">match center // telemetry monitor</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="badge badge-live"><span class="pulse-dot"></span> <span id="feat-status-pill">live - 74'</span></span>
+            <span class="muted" style="font-size: 11px;">[id: <span id="feat-match-id">epl_ars_mci</span>]</span>
+          </div>
+        </div>
+
+        <div class="match-center-hero">
+          <div class="meta-headline">
+            <span id="feat-competition">PREMIER LEAGUE // MATCHWEEK 28</span>
+            <span id="feat-venue">EMIRATES STADIUM, LONDON</span>
+          </div>
+
+          <div class="scoreboard-strip">
+            <div class="team-cell">
+              <div class="team-crest" id="feat-home-code">ARS</div>
+              <div>
+                <div class="team-name" id="feat-home-name">Arsenal FC</div>
+                <div class="team-sub">possession: <span id="feat-home-poss" class="green">56%</span></div>
+              </div>
+            </div>
+
+            <div class="score-display">
+              <div class="score-nums" id="feat-score">2 - 1</div>
+              <div class="match-clock">
+                <span class="pulse-dot"></span> <span id="feat-clock">74:18</span>
+              </div>
+            </div>
+
+            <div class="team-cell right">
+              <div>
+                <div class="team-name" id="feat-away-name">Manchester City</div>
+                <div class="team-sub">possession: <span id="feat-away-poss">44%</span></div>
+              </div>
+              <div class="team-crest" id="feat-away-code">MCI</div>
+            </div>
+          </div>
+
+          <!-- DUAL METRICS TELEMETRY -->
+          <div class="telemetry-row">
+            <div class="stat-chip">
+              <div class="stat-chip-label">
+                <span id="stat-poss-h">56%</span>
+                <span>ball possession</span>
+                <span id="stat-poss-a">44%</span>
+              </div>
+              <div class="dual-bar">
+                <div class="dual-fill-left" id="bar-poss" style="width: 56%;"></div>
+                <div class="dual-fill-right" style="flex: 1;"></div>
+              </div>
+            </div>
+
+            <div class="stat-chip">
+              <div class="stat-chip-label">
+                <span id="stat-xg-h">1.84</span>
+                <span>expected goals (xG)</span>
+                <span id="stat-xg-a">1.21</span>
+              </div>
+              <div class="dual-bar">
+                <div class="dual-fill-left" id="bar-xg" style="width: 60%;"></div>
+                <div class="dual-fill-right" style="flex: 1;"></div>
+              </div>
+            </div>
+
+            <div class="stat-chip">
+              <div class="stat-chip-label">
+                <span id="stat-shots-h">14 (6)</span>
+                <span>shots (on target)</span>
+                <span id="stat-shots-a">9 (4)</span>
+              </div>
+              <div class="dual-bar">
+                <div class="dual-fill-left" id="bar-shots" style="width: 61%;"></div>
+                <div class="dual-fill-right" style="flex: 1;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECONDARY METRICS ROW -->
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; font-size: 11px;">
+            <div style="background: var(--bg-surface); padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: 3px;">
+              <span class="muted">PASS ACCURACY:</span> <span class="green" style="font-weight: 700;">88% vs 85%</span>
+            </div>
+            <div style="background: var(--bg-surface); padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: 3px;">
+              <span class="muted">CORNERS:</span> <span style="font-weight: 700;">7 - 4</span>
+            </div>
+            <div style="background: var(--bg-surface); padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: 3px;">
+              <span class="muted">FOULS / CARDS:</span> <span style="font-weight: 700;">9(2) - 11(3)</span>
+            </div>
+            <div style="background: var(--bg-surface); padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: 3px;">
+              <span class="muted">HIGH PRESSURES:</span> <span class="green" style="font-weight: 700;">38 - 41</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- REALTIME INCIDENT STREAM -->
+        <div class="timeline-strip">
+          <div class="timeline-title">
+            <span>&gt; match telemetry event log</span>
+            <span class="muted" id="timeline-count">showing 4 events</span>
+          </div>
+          <div class="events-stream" id="events-stream-list">
+            <!-- Dynamic events inserted here -->
+          </div>
+        </div>
+      </section>
+
+      <!-- FIXTURES & RESULTS DIRECTORY -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">fixtures // live & scheduled</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button class="btn btn-green" id="filter-state-all" onclick="setFixtureStateFilter('all')">all</button>
+            <button class="btn" id="filter-state-live" onclick="setFixtureStateFilter('live')">live only</button>
+            <button class="btn" id="filter-state-upcoming" onclick="setFixtureStateFilter('upcoming')">upcoming</button>
+          </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="fixtures-table">
+            <thead>
+              <tr>
+                <th style="width: 80px;">status</th>
+                <th style="width: 140px;">competition</th>
+                <th>matchup & score telemetry</th>
+                <th style="width: 120px; text-align: center;">probabilities</th>
+                <th style="width: 90px; text-align: right;">action</th>
+              </tr>
+            </thead>
+            <tbody id="fixtures-tbody">
+              <!-- Populated via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- RIGHT METRICS COLUMN -->
+    <div class="side-col">
+
+      <!-- LEAGUE TABLE / STANDINGS WIDGET -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">table // standings</div>
+          <span class="muted" style="font-size: 10px;">EPL 2026/27</span>
+        </div>
+        <div style="padding: 4px 0; overflow-x: auto;">
+          <table class="standings-table">
+            <thead>
+              <tr>
+                <th class="pos-col">#</th>
+                <th>club</th>
+                <th style="text-align: right;">p</th>
+                <th style="text-align: right;">gd</th>
+                <th style="text-align: right;">pts</th>
+                <th style="text-align: center;">form</th>
+              </tr>
+            </thead>
+            <tbody id="standings-tbody">
+              <!-- Populated by script -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- STAT TERMINAL / PLAYER LEADERBOARD -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">leaders // goals & assists</div>
+          <span class="badge badge-sched">top 5</span>
+        </div>
+        <div id="leaderboard-list">
+          <!-- Populated by script -->
+        </div>
+      </section>
+
+      <!-- SYSTEM DIAGNOSTICS & TELEMETRY LOGS -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">terminal diagnostics</div>
+          <span class="green" style="font-size: 10.5px;">active</span>
+        </div>
+        <div style="padding: 12px; font-size: 11px; color: var(--text-secondary); line-height: 1.6;">
+          <p><span class="muted">&gt;</span> feed poll rate: <span class="green">500ms</span></p>
+          <p><span class="muted">&gt;</span> active parser: <span class="text-primary">Opta / SportRadar telemetry v4</span></p>
+          <p><span class="muted">&gt;</span> crypto integrity hash: <span class="muted">0x9c3...4fa1</span></p>
+          <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-subtle);">
+            <button class="btn" style="width: 100%; justify-content: center;" onclick="copyTelemetryLink()">
+              <svg class="icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              copy match telemetry url
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast-notify" class="toast">
+    <svg class="icon green" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    <span id="toast-message">Telemetry stream synchronised</span>
+  </div>
+
+  <script>
+    // System Data Models - Clean, modern and emoji-free
+    const matchesDatabase = [
+      {
+        id: "epl_ars_mci",
+        sport: "soccer",
+        league: "EPL",
+        round: "Matchweek 28",
+        venue: "Emirates Stadium, London",
+        home: { name: "Arsenal FC", code: "ARS", score: 2, poss: 56, xg: 1.84, shots: "14 (6)" },
+        away: { name: "Manchester City", code: "MCI", score: 1, poss: 44, xg: 1.21, shots: "9 (4)" },
+        status: "LIVE",
+        clock: "74:18",
+        clockShort: "74'",
+        isLive: true,
+        odds: { h: "2.10", d: "3.40", a: "3.15" },
+        events: [
+          { minute: "72'", type: "goal", title: "GOAL! Saka (Right-Foot Curl, xG: 0.12)", club: "ARS" },
+          { minute: "61'", type: "sub", title: "Substitution: Foden &lt;&gt; Doku", club: "MCI" },
+          { minute: "48'", type: "card", title: "Yellow Card: Rodri (Tactical Foul)", club: "MCI" },
+          { minute: "34'", type: "goal", title: "GOAL! Haaland (Header, xG: 0.78)", club: "MCI" },
+          { minute: "12'", type: "goal", title: "GOAL! Odegaard (Low Drive, xG: 0.34)", club: "ARS" }
+        ]
+      },
+      {
+        id: "nba_bos_gsw",
+        sport: "basketball",
+        league: "NBA",
+        round: "Regular Season",
+        venue: "TD Garden, Boston",
+        home: { name: "Boston Celtics", code: "BOS", score: 108, poss: 51, xg: 1.05, shots: "48.2% FG" },
+        away: { name: "GS Warriors", code: "GSW", score: 104, poss: 49, xg: 0.98, shots: "45.1% FG" },
+        status: "LIVE",
+        clock: "Q4 3:18",
+        clockShort: "Q4 3:18",
+        isLive: true,
+        odds: { h: "1.65", d: "--", a: "2.25" },
+        events: [
+          { minute: "Q4 3:18", type: "goal", title: "Tatum Step-Back 3-Pointer (28ft)", club: "BOS" },
+          { minute: "Q4 4:02", type: "goal", title: "Curry Fastbreak Floater", club: "GSW" },
+          { minute: "Q4 5:45", type: "sub", title: "Official Timeout: GS Call", club: "GSW" }
+        ]
+      },
+      {
+        id: "ucl_rma_bay",
+        sport: "soccer",
+        league: "UEFA CL",
+        round: "Quarter-Final Leg 1",
+        venue: "Santiago Bernabéu, Madrid",
+        home: { name: "Real Madrid", code: "RMA", score: 3, poss: 52, xg: 2.12, shots: "16 (8)" },
+        away: { name: "Bayern Munich", code: "BAY", score: 2, poss: 48, xg: 1.94, shots: "13 (5)" },
+        status: "LIVE",
+        clock: "88:42",
+        clockShort: "88'",
+        isLive: true,
+        odds: { h: "1.90", d: "3.60", a: "3.75" },
+        events: [
+          { minute: "86'", type: "goal", title: "GOAL! Bellingham (Tap-in after deflection)", club: "RMA" },
+          { minute: "75'", type: "card", title: "Yellow Card: Kimmich (Dissent)", club: "BAY" },
+          { minute: "63'", type: "goal", title: "GOAL! Kane (Penalty Conversion)", club: "BAY" }
+        ]
+      },
+      {
+        id: "nfl_kc_buf",
+        sport: "nfl",
+        league: "NFL",
+        round: "AFC Championship",
+        venue: "Arrowhead Stadium, KC",
+        home: { name: "KC Chiefs", code: "KC", score: 24, poss: 55, xg: 0.0, shots: "324 YDS" },
+        away: { name: "Buffalo Bills", code: "BUF", score: 21, poss: 45, xg: 0.0, shots: "298 YDS" },
+        status: "LIVE",
+        clock: "Q3 8:44",
+        clockShort: "Q3 8:44",
+        isLive: true,
+        odds: { h: "1.80", d: "--", a: "2.05" },
+        events: [
+          { minute: "Q3 8:44", type: "goal", title: "Mahomes 18-yd TD Pass to Kelce", club: "KC" },
+          { minute: "Q3 12:10", type: "sub", title: "Allen Scramble for 1st Down (14 YDS)", club: "BUF" }
+        ]
+      },
+      {
+        id: "laliga_bar_atm",
+        sport: "soccer",
+        league: "La Liga",
+        round: "Matchweek 27",
+        venue: "Camp Nou, Barcelona",
+        home: { name: "FC Barcelona", code: "BAR", score: 0, poss: 0, xg: 0.0, shots: "0" },
+        away: { name: "Atlético Madrid", code: "ATM", score: 0, poss: 0, xg: 0.0, shots: "0" },
+        status: "UPCOMING",
+        clock: "20:00 UTC",
+        clockShort: "20:00",
+        isLive: false,
+        odds: { h: "1.85", d: "3.50", a: "4.20" },
+        events: []
+      },
+      {
+        id: "epl_liv_mun",
+        sport: "soccer",
+        league: "EPL",
+        round: "Matchweek 28",
+        venue: "Anfield, Liverpool",
+        home: { name: "Liverpool FC", code: "LIV", score: 3, poss: 63, xg: 2.80, shots: "22 (11)" },
+        away: { name: "Manchester Utd", code: "MUN", score: 0, poss: 37, xg: 0.44, shots: "5 (1)" },
+        status: "FINISHED",
+        clock: "FT",
+        clockShort: "FT",
+        isLive: false,
+        odds: { h: "1.45", d: "4.50", a: "6.50" },
+        events: [
+          { minute: "89'", type: "goal", title: "GOAL! Nunez (Rebound strike)", club: "LIV" },
+          { minute: "54'", type: "goal", title: "GOAL! Salah (Cut Inside Finisher)", club: "LIV" },
+          { minute: "21'", type: "goal", title: "GOAL! Diaz (Volley)", club: "LIV" }
+        ]
+      },
+      {
+        id: "f1_monaco_gp",
+        sport: "f1",
+        league: "Formula 1",
+        round: "Monaco GP",
+        venue: "Circuit de Monaco",
+        home: { name: "Verstappen (RBR)", code: "VER", score: "P1", poss: 0, xg: 0, shots: "1:10.421" },
+        away: { name: "Leclerc (FER)", code: "LEC", score: "+0.142s", poss: 0, xg: 0, shots: "1:10.563" },
+        status: "UPCOMING",
+        clock: "SUN 13:00",
+        clockShort: "SUN 13:00",
+        isLive: false,
+        odds: { h: "1.50", d: "--", a: "2.75" },
+        events: []
+      }
+    ];
+
+    const standingsData = [
+      { pos: 1, club: "Arsenal", p: 28, w: 21, d: 4, l: 3, gd: "+42", pts: 67, form: ["W","W","W","D","W"] },
+      { pos: 2, club: "Man City", p: 28, w: 20, d: 5, l: 3, gd: "+40", pts: 65, form: ["W","W","D","W","L"] },
+      { pos: 3, club: "Liverpool", p: 28, w: 19, d: 7, l: 2, gd: "+38", pts: 64, form: ["W","W","W","W","W"] },
+      { pos: 4, club: "Aston Villa", p: 28, w: 17, d: 4, l: 7, gd: "+18", pts: 55, form: ["L","W","W","L","W"] },
+      { pos: 5, club: "Tottenham", p: 28, w: 16, d: 5, l: 7, gd: "+14", pts: 53, form: ["W","D","L","W","D"] },
+      { pos: 6, club: "Man United", p: 28, w: 14, d: 2, l: 12, gd: "-1", pts: 44, form: ["L","L","W","W","L"] }
+    ];
+
+    const leadersData = [
+      { name: "Erling Haaland", club: "Manchester City", val: "22 goals" },
+      { name: "Bukayo Saka", club: "Arsenal FC", val: "17 goals / 11 ast" },
+      { name: "Mohamed Salah", club: "Liverpool FC", val: "16 goals / 13 ast" },
+      { name: "Ollie Watkins", club: "Aston Villa", val: "15 goals / 10 ast" },
+      { name: "Cole Palmer", club: "Chelsea FC", val: "14 goals / 9 ast" }
+    ];
+
+    let currentSelectedMatchId = "epl_ars_mci";
+    let activeSportFilter = "all";
+    let activeStateFilter = "all";
+    let currentSearchTerm = "";
+  </script>
+
+  <script>
+    // UTC Clock Updater
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getUTCHours()).padStart(2, '0');
+      const m = String(now.getUTCMinutes()).padStart(2, '0');
+      const s = String(now.getUTCSeconds()).padStart(2, '0');
+      const clockEl = document.getElementById('clock-utc');
+      if (clockEl) clockEl.textContent = `${h}:${m}:${s}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Render Ticker Bar
+    function renderTicker() {
+      const container = document.getElementById('ticker-container');
+      if (!container) return;
+
+      container.innerHTML = matchesDatabase.map(m => {
+        const isLive = m.isLive;
+        return `
+          <div class="ticker-card" onclick="selectFeaturedMatch('${m.id}')">
+            <span class="muted" style="font-size: 10px;">${m.league}</span>
+            <span style="font-weight: 600;">${m.home.code}</span>
+            <span class="${isLive ? 'green' : 'muted'}" style="font-weight: 700;">${m.home.score} - ${m.away.score}</span>
+            <span style="font-weight: 600;">${m.away.code}</span>
+            <span class="ticker-time ${isLive ? 'green' : ''}">
+              ${isLive ? `<span class="pulse-dot" style="margin: 0; width: 5px; height: 5px;"></span> ${m.clockShort}` : m.clockShort}
+            </span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Render Standings Table
+    function renderStandings() {
+      const tbody = document.getElementById('standings-tbody');
+      if (!tbody) return;
+
+      tbody.innerHTML = standingsData.map(row => {
+        const formHtml = row.form.map(f => {
+          if (f === 'W') return `<span class="form-box form-w">W</span>`;
+          if (f === 'D') return `<span class="form-box form-d">D</span>`;
+          return `<span class="form-box form-l">L</span>`;
+        }).join('');
+
+        return `
+          <tr>
+            <td class="pos-col ${row.pos <= 4 ? 'top-4' : ''}">${row.pos}</td>
+            <td style="font-weight: 600; color: #fff;">${row.club}</td>
+            <td style="text-align: right; color: var(--text-muted);">${row.p}</td>
+            <td style="text-align: right;">${row.gd}</td>
+            <td style="text-align: right; font-weight: 700; color: var(--accent-green);">${row.pts}</td>
+            <td style="text-align: center;">${formHtml}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Render Leaders List
+    function renderLeaders() {
+      const container = document.getElementById('leaderboard-list');
+      if (!container) return;
+
+      container.innerHTML = leadersData.map(item => `
+        <div class="leader-row">
+          <div>
+            <div class="leader-name">${item.name}</div>
+            <div class="leader-club">${item.club}</div>
+          </div>
+          <div class="leader-val">${item.val}</div>
+        </div>
+      `).join('');
+    }
+
+    // Render Main Match Center (Hero Telemetry)
+    function renderFeaturedMatch(matchId) {
+      const match = matchesDatabase.find(m => m.id === matchId);
+      if (!match) return;
+
+      currentSelectedMatchId = match.id;
+
+      document.getElementById('feat-match-id').textContent = match.id;
+      document.getElementById('feat-competition').textContent = `${match.league.toUpperCase()} // ${match.round.toUpperCase()}`;
+      document.getElementById('feat-venue').textContent = match.venue.toUpperCase();
+
+      document.getElementById('feat-home-code').textContent = match.home.code;
+      document.getElementById('feat-home-name').textContent = match.home.name;
+      document.getElementById('feat-home-poss').textContent = `${match.home.poss}%`;
+
+      document.getElementById('feat-away-code').textContent = match.away.code;
+      document.getElementById('feat-away-name').textContent = match.away.name;
+      document.getElementById('feat-away-poss').textContent = `${match.away.poss}%`;
+
+      document.getElementById('feat-score').textContent = `${match.home.score} - ${match.away.score}`;
+      document.getElementById('feat-clock').textContent = match.clock;
+
+      // Status pill update
+      const statusPill = document.getElementById('feat-status-pill');
+      if (match.isLive) {
+        statusPill.parentElement.className = 'badge badge-live';
+        statusPill.parentElement.innerHTML = `<span class="pulse-dot"></span> <span>live - ${match.clockShort}</span>`;
+      } else if (match.status === 'FINISHED') {
+        statusPill.parentElement.className = 'badge badge-ft';
+        statusPill.parentElement.innerHTML = `<span>final time</span>`;
+      } else {
+        statusPill.parentElement.className = 'badge badge-sched';
+        statusPill.parentElement.innerHTML = `<span>scheduled</span>`;
+      }
+
+      // Bar stats
+      document.getElementById('stat-poss-h').textContent = `${match.home.poss}%`;
+      document.getElementById('stat-poss-a').textContent = `${match.away.poss}%`;
+      document.getElementById('bar-poss').style.width = `${match.home.poss}%`;
+
+      document.getElementById('stat-xg-h').textContent = match.home.xg.toFixed(2);
+      document.getElementById('stat-xg-a').textContent = match.away.xg.toFixed(2);
+      const totalXg = (match.home.xg + match.away.xg) || 1;
+      const xgPct = Math.round((match.home.xg / totalXg) * 100);
+      document.getElementById('bar-xg').style.width = `${xgPct}%`;
+
+      document.getElementById('stat-shots-h').textContent = match.home.shots;
+      document.getElementById('stat-shots-a').textContent = match.away.shots;
+
+      // Timeline events
+      const eventsContainer = document.getElementById('events-stream-list');
+      const countLabel = document.getElementById('timeline-count');
+      countLabel.textContent = `showing ${match.events.length} telemetry logs`;
+
+      if (match.events.length === 0) {
+        eventsContainer.innerHTML = `<div class="muted" style="padding: 10px; font-style: italic;">&gt; No active incidents logged for this fixture yet.</div>`;
+      } else {
+        eventsContainer.innerHTML = match.events.map(ev => {
+          let tagClass = 'goal';
+          if (ev.type === 'card') tagClass = 'card';
+          if (ev.type === 'sub') tagClass = 'sub';
+          return `
+            <div class="event-line">
+              <span class="event-min">${ev.minute}</span>
+              <span class="event-tag ${tagClass}">${ev.type}</span>
+              <span style="font-weight: 600; color: #fff;">[${ev.club}]</span>
+              <span style="color: var(--text-secondary);">${ev.title}</span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Update selection styling in table
+      renderFixtures();
+    }
+
+    // Select featured match handler
+    window.selectFeaturedMatch = function(matchId) {
+      renderFeaturedMatch(matchId);
+      // Smooth scroll if needed on mobile
+      const panel = document.getElementById('feature-panel');
+      if (window.innerWidth < 768 && panel) {
+        panel.scrollIntoView({ behavior: 'smooth' });
+      }
+    };
+  </script>
+
+  <script>
+    // Fixtures Table Renderer
+    function renderFixtures() {
+      const tbody = document.getElementById('fixtures-tbody');
+      if (!tbody) return;
+
+      const filtered = matchesDatabase.filter(m => {
+        // Sport filter
+        if (activeSportFilter !== 'all' && m.sport !== activeSportFilter) {
+          return false;
+        }
+        // State filter
+        if (activeStateFilter === 'live' && !m.isLive) return false;
+        if (activeStateFilter === 'upcoming' && (m.isLive || m.status === 'FINISHED')) return false;
+
+        // Search term
+        if (currentSearchTerm.trim() !== '') {
+          const q = currentSearchTerm.toLowerCase();
+          const matchStr = `${m.home.name} ${m.away.name} ${m.home.code} ${m.away.code} ${m.league}`.toLowerCase();
+          if (!matchStr.includes(q)) return false;
+        }
+
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align: center; padding: 24px; color: var(--text-muted);">
+              &gt; NO FIXTURES MATCHING QUERY CRITERIA
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(m => {
+        const isCurrent = m.id === currentSelectedMatchId;
+        let badgeHtml = '';
+        if (m.isLive) {
+          badgeHtml = `<span class="badge badge-live"><span class="pulse-dot"></span>${m.clockShort}</span>`;
+        } else if (m.status === 'FINISHED') {
+          badgeHtml = `<span class="badge badge-ft">FT</span>`;
+        } else {
+          badgeHtml = `<span class="badge badge-sched">${m.clockShort}</span>`;
+        }
+
+        return `
+          <tr class="fixture-row ${isCurrent ? 'selected' : ''}" onclick="selectFeaturedMatch('${m.id}')">
+            <td>${badgeHtml}</td>
+            <td class="muted" style="font-size: 11px;">
+              <span style="color: var(--text-primary); font-weight: 600;">${m.league}</span><br>
+              <span style="font-size: 10px;">${m.round}</span>
+            </td>
+            <td>
+              <div class="cell-matchup">
+                <div class="cell-team" style="text-align: right; flex: 1;">${m.home.name}</div>
+                <div class="cell-score">${m.home.score} - ${m.away.score}</div>
+                <div class="cell-team" style="text-align: left; flex: 1;">${m.away.name}</div>
+              </div>
+            </td>
+            <td style="text-align: center;">
+              <span class="odds-pill" title="Home Win Odds">${m.odds.h}</span>
+              <span class="odds-pill" title="Draw Odds">${m.odds.d}</span>
+              <span class="odds-pill" title="Away Win Odds">${m.odds.a}</span>
+            </td>
+            <td style="text-align: right;">
+              <button class="btn ${isCurrent ? 'btn-green' : ''}" style="padding: 3px 8px; font-size: 10.5px;">
+                ${isCurrent ? 'active' : 'telemetry'}
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Set filter functions
+    window.setFixtureStateFilter = function(state) {
+      activeStateFilter = state;
+      ['all', 'live', 'upcoming'].forEach(s => {
+        const btn = document.getElementById(`filter-state-${s}`);
+        if (btn) {
+          if (s === state) {
+            btn.className = 'btn btn-green';
+          } else {
+            btn.className = 'btn';
+          }
+        }
+      });
+      renderFixtures();
+    };
+
+    // Sport tabs handler
+    document.querySelectorAll('#sport-tabs .nav-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#sport-tabs .nav-pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeSportFilter = btn.getAttribute('data-sport');
+        renderFixtures();
+      });
+    });
+
+    // Search input handler
+    const searchInput = document.getElementById('filter-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        currentSearchTerm = e.target.value;
+        renderFixtures();
+      });
+    }
+
+    // Toast notification display helper
+    function showNotification(msg) {
+      const toast = document.getElementById('toast-notify');
+      const toastMsg = document.getElementById('toast-message');
+      if (toast && toastMsg) {
+        toastMsg.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => {
+          toast.classList.remove('show');
+        }, 2800);
+      }
+    }
+
+    // Copy telemetry link handler
+    window.copyTelemetryLink = function() {
+      const dummyUrl = `https://plaig.space/telemetry/${currentSelectedMatchId}?auth=terminal_v2`;
+      const tempInput = document.createElement('input');
+      tempInput.value = dummyUrl;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+      showNotification(`Link copied to clipboard: ${dummyUrl}`);
+    };
+
+    // Export raw JSON handler
+    document.getElementById('export-json-btn').addEventListener('click', () => {
+      const match = matchesDatabase.find(m => m.id === currentSelectedMatchId);
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(match || matchesDatabase, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `plaig_space_${currentSelectedMatchId}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showNotification(`Telemetry exported: plaig_space_${currentSelectedMatchId}.json`);
+    });
+
+    // SIMULATION ENGINE: Inject Live Telemetry Event
+    document.getElementById('simulate-tick-btn').addEventListener('click', () => {
+      const targetMatch = matchesDatabase.find(m => m.id === currentSelectedMatchId) || matchesDatabase[0];
+      
+      if (!targetMatch.isLive) {
+        showNotification("Target match is finished/scheduled. Switch to a live fixture first.");
+        return;
+      }
+
+      // Generate simulated play
+      const minuteVal = parseInt(targetMatch.clock.split(':')[0]) || 78;
+      const nextMinute = `${minuteVal + 2}'`;
+      const isHomeScore = Math.random() > 0.5;
+      
+      if (isHomeScore) {
+        targetMatch.home.score += 1;
+        targetMatch.home.xg = +(targetMatch.home.xg + 0.35).toFixed(2);
+        targetMatch.events.unshift({
+          minute: nextMinute,
+          type: "goal",
+          title: `SIMULATED GOAL! ${targetMatch.home.name} precision strike into upper corner.`,
+          club: targetMatch.home.code
+        });
+      } else {
+        targetMatch.away.score += 1;
+        targetMatch.away.xg = +(targetMatch.away.xg + 0.42).toFixed(2);
+        targetMatch.events.unshift({
+          minute: nextMinute,
+          type: "goal",
+          title: `SIMULATED GOAL! Counter attack conversion by ${targetMatch.away.name}.`,
+          club: targetMatch.away.code
+        });
+      }
+      
+      targetMatch.clock = `${minuteVal + 2}:00`;
+      targetMatch.clockShort = `${minuteVal + 2}'`;
+
+      // Re-render views
+      renderFeaturedMatch(targetMatch.id);
+      renderTicker();
+      showNotification(`[TELEMETRY INJECTED] Goal scored in ${targetMatch.home.code} vs ${targetMatch.away.code}`);
+    });
+
+    // Initial render call
+    renderTicker();
+    renderStandings();
+    renderLeaders();
+    renderFeaturedMatch(currentSelectedMatchId);
+    renderFixtures();
+  </script>
+</body>
+</html>
