@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>plaig.space — Live Market Dashboard & News</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              850: '#111827',
+              900: '#0b0f19',
+              950: '#060911',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    /* Ensure tradingview iframes take full height */
+    .tradingview-widget-container iframe {
+      border-radius: 0.75rem;
+    }
+    /* Loader overlay styling */
+    .loader {
+      position: absolute;
+      inset: 0;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .loader::after {
+      content: "";
+      width: 24px;
+      height: 24px;
+      border: 3px solid #34d399; /* emerald-400 */
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    /* Button transition */
+    #stock_button {
+      transition: background-color 0.2s ease;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-emerald-600 selection:text-white flex flex-col">
+
+  <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xl font-black tracking-tight text-white">
+                plaig<span class="text-emerald-500">.space</span>
+              </span>
+              <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Live Data</span>
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 hidden sm:block">Powered by TradingView Widgets</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="hidden sm:flex flex-col items-end text-[11px] text-slate-400">
+            <span class="font-medium text-slate-300">Live Connection</span>
+            <span class="text-slate-500">TradingView Sync</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Ticker Tape -->
+  <div class="border-b border-slate-800 bg-slate-900">
+    <!-- TradingView Widget BEGIN -->
+    <div class="tradingview-widget-container">
+      <div class="tradingview-widget-container__widget"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+      {
+      "symbols": [
+        { "proName": "FOREXCOM:SPXUSD", "title": "S&P 500" },
+        { "proName": "FOREXCOM:NSXUSD", "title": "US 100" },
+        { "proName": "FX_IDC:EURUSD", "title": "EUR to USD" },
+        { "proName": "BITSTAMP:BTCUSD", "title": "Bitcoin" },
+        { "proName": "BITSTAMP:ETHUSD", "title": "Ethereum" },
+        { "description": "Apple", "proName": "NASDAQ:AAPL" },
+        { "description": "Nvidia", "proName": "NASDAQ:NVDA" },
+        { "description": "Tesla", "proName": "NASDAQ:TSLA" }
+      ],
+      "showSymbolLogo": true,
+      "isTransparent": true,
+      "displayMode": "adaptive",
+      "colorTheme": "dark",
+      "locale": "en"
+    }
+      </script>
+    </div>
+    <!-- TradingView Widget END -->
+  </div>
+
+  <main class="flex-1 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex flex-col xl:flex-row gap-6">
+    
+    <!-- Left Column: Chart and Sectors -->
+    <div class="flex-1 min-w-0 flex flex-col gap-6">
+      
+      <!-- Interactive Chart Section -->
+      <div class="flex items-center gap-2 mb-2"><input id="stock_input" type="text" placeholder="Enter ticker (e.g., NASDAQ:AAPL)" class="px-3 py-2 rounded-xl bg-slate-800 text-white focus:outline-none font-sans"/><button id="stock_button" class="px-3 py-2 bg-emerald-600 rounded-xl hover:bg-emerald-500 font-sans">Load</button></div>
+      <section class="h-[500px] bg-slate-900/50 rounded-xl border border-slate-800/80 p-2 shadow-lg">
+        <!-- TradingView Widget BEGIN -->
+        <div class="tradingview-widget-container" style="height:100%;width:100%">
+          <div id="tradingview_chart" style="height:100%;width:100%"></div>
+      <div id="loader" class="loader hidden"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+          <script type="text/javascript">
+function loadChart(symbol) {
+  const container = document.getElementById('tradingview_chart');
+  // Clear previous widget
+  container.innerHTML = '';
+  new TradingView.widget({
+    autosize: true,
+    symbol: symbol,
+    interval: 'D',
+    timezone: 'Etc/UTC',
+    theme: 'dark',
+    style: '1',
+    locale: 'en',
+    enable_publishing: false,
+    backgroundColor: 'rgba(11, 15, 25, 1)',
+    gridColor: 'rgba(31, 41, 55, 1)',
+    hide_top_toolbar: false,
+    hide_legend: false,
+    save_image: false,
+    container_id: 'tradingview_chart'
+  });
+}
+
+// Initial load
+loadChart('NASDAQ:AAPL');
+
+// Set up search button handler
+document.getElementById('stock_button').addEventListener('click', function() {
+  const sym = document.getElementById('stock_input').value.trim();
+  if (sym) {
+    const loader = document.getElementById('loader');
+    loader.classList.remove('hidden');
+    loadChart(sym);
+    // hide loader after a short delay (widget loads quickly)
+    setTimeout(() => loader.classList.add('hidden'), 800);
+  }
+});
+          </script>
+        </div>
+        <!-- TradingView Widget END -->
+      </section>
+
+      <!-- Sectors Overview (Market Data Widget) -->
+      <section class="h-[400px] bg-slate-900/50 rounded-xl border border-slate-800/80 p-2 shadow-lg">
+        <!-- TradingView Widget BEGIN -->
+        <div class="tradingview-widget-container" style="height:100%;width:100%">
+          <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-overview.js" async>
+          {
+          "colorTheme": "dark",
+          "dateRange": "12M",
+          "showChart": true,
+          "locale": "en",
+          "largeChartUrl": "",
+          "isTransparent": true,
+          "showSymbolLogo": true,
+          "showFloatingTooltip": false,
+          "width": "100%",
+          "height": "100%",
+          "tabs": [
+            {
+              "title": "Technology",
+              "symbols": [
+                { "s": "NASDAQ:AAPL", "d": "Apple" },
+                { "s": "NASDAQ:MSFT", "d": "Microsoft" },
+                { "s": "NASDAQ:NVDA", "d": "Nvidia" },
+                { "s": "NASDAQ:GOOGL", "d": "Alphabet" }
+              ]
+            },
+            {
+              "title": "Healthcare",
+              "symbols": [
+                { "s": "NYSE:JNJ", "d": "Johnson & Johnson" },
+                { "s": "NYSE:UNH", "d": "UnitedHealth" },
+                { "s": "NYSE:LLY", "d": "Eli Lilly" },
+                { "s": "NYSE:PFE", "d": "Pfizer" }
+              ]
+            },
+            {
+              "title": "Finance",
+              "symbols": [
+                { "s": "NYSE:JPM", "d": "JPMorgan Chase" },
+                { "s": "NYSE:V", "d": "Visa" },
+                { "s": "NYSE:MA", "d": "Mastercard" },
+                { "s": "NYSE:BAC", "d": "Bank of America" }
+              ]
+            },
+            {
+              "title": "Energy",
+              "symbols": [
+                { "s": "NYSE:XOM", "d": "Exxon Mobil" },
+                { "s": "NYSE:CVX", "d": "Chevron" },
+                { "s": "NYSE:COP", "d": "ConocoPhillips" },
+                { "s": "NYSE:SLB", "d": "Schlumberger" }
+              ]
+            },
+            {
+              "title": "Consumer",
+              "symbols": [
+                { "s": "NASDAQ:AMZN", "d": "Amazon" },
+                { "s": "NYSE:WMT", "d": "Walmart" },
+                { "s": "NASDAQ:TSLA", "d": "Tesla" },
+                { "s": "NYSE:HD", "d": "Home Depot" }
+              ]
+            }
+          ]
+        }
+          </script>
+        </div>
+        <!-- TradingView Widget END -->
+      </section>
+
+    </div>
+
+    <!-- Right Column: News & Hotlists -->
+    <aside class="xl:w-[450px] xl:shrink-0 flex flex-col gap-6">
+      
+      <!-- Top Stories (Timeline Widget) -->
+      <section class="h-[500px] bg-slate-900/50 rounded-xl border border-slate-800/80 p-2 shadow-lg">
+        <!-- TradingView Widget BEGIN -->
+        <div class="tradingview-widget-container" style="height:100%;width:100%">
+          <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-timeline.js" async>
+          {
+          "feedMode": "all_symbols",
+          "isTransparent": true,
+          "displayMode": "regular",
+          "width": "100%",
+          "height": "100%",
+          "colorTheme": "dark",
+          "locale": "en"
+        }
+          </script>
+        </div>
+        <!-- TradingView Widget END -->
+      </section>
+
+      <!-- Hotlists (Top Gainers / Losers) -->
+      <section class="h-[400px] bg-slate-900/50 rounded-xl border border-slate-800/80 p-2 shadow-lg">
+        <!-- TradingView Widget BEGIN -->
+        <div class="tradingview-widget-container" style="height:100%;width:100%">
+          <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-hotlists.js" async>
+          {
+          "colorTheme": "dark",
+          "dateRange": "12M",
+          "exchange": "US",
+          "showChart": true,
+          "locale": "en",
+          "largeChartUrl": "",
+          "isTransparent": true,
+          "showSymbolLogo": true,
+          "showFloatingTooltip": false,
+          "width": "100%",
+          "height": "100%"
+        }
+          </script>
+        </div>
+        <!-- TradingView Widget END -->
+      </section>
+
+    </aside>
+  </main>
+
+  <footer class="bg-slate-900 border-t border-slate-800 mt-6 py-6 text-slate-500 text-xs text-center">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-2">
+        <span class="font-bold text-slate-400">plaig.space Market Dashboard</span>
+        <span>•</span>
+        <span>Powered by TradingView</span>
+      </div>
+      <p>Data provided securely by TradingView's free embeddable market widgets.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
